@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
 import { ToastProvider } from '@/components/ui/toast';
+import { Navigation } from '@/components/Navigation';
+import { getCurrentUser } from '@/lib/auth';
 import "./globals.css";
 
 const geistSans = Geist({
@@ -35,11 +37,13 @@ function ConditionalClerkProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser()
+
   return (
     <html lang="en">
       <body
@@ -47,6 +51,7 @@ export default function RootLayout({
       >
         <ConditionalClerkProvider>
           <ToastProvider>
+            <Navigation user={user} />
             {children}
           </ToastProvider>
         </ConditionalClerkProvider>

@@ -1,6 +1,6 @@
-# QR Orders - Multi-Tenant Restaurant Ordering SaaS
+# QR Orders - Complete SaaS Platform
 
-A comprehensive QR ordering system for restaurants, cafés, and bars with Stripe Connect Standard, Direct Charges, and Stripe Billing integration.
+A fully functional multi-tenant QR ordering system for restaurants, cafés, and bars with Stripe Connect Standard, Direct Charges, and Stripe Billing integration.
 
 ## 🚀 Features
 
@@ -10,23 +10,21 @@ A comprehensive QR ordering system for restaurants, cafés, and bars with Stripe
 - **Real-time Management**: Live order tracking with Supabase Realtime
 - **QR Code Generation**: Printable QR codes for each table
 - **Menu Management**: Full CRUD for categories, items, and modifiers
-- **Analytics Dashboard**: Order insights and customer data
 - **Multi-tenant Architecture**: Complete data isolation per restaurant
+- **Staff Management**: Role-based access control (Owner, Manager, Staff)
 
 ### For Customers
 - **Mobile-First**: Scan QR → Browse menu → Add to cart → Checkout
 - **Apple Pay & Google Pay**: Native payment methods via Stripe Checkout
 - **Real-time Updates**: Live order status tracking
 - **Modifiers & Notes**: Customize items with special instructions
+- **Tipping Support**: Built-in tipping functionality
 
-### Technical Features
-- **Stripe Connect Standard**: Direct charges to restaurant accounts
-- **Stripe Billing**: SaaS subscription management with 14-day trials
-- **Supabase Realtime**: Live updates across all clients
-- **Clerk Authentication**: Secure staff and admin access
-- **PostgreSQL**: Robust data storage with Prisma ORM
-- **TypeScript**: Full type safety throughout
-- **Mobile-First UI**: Responsive design with Tailwind CSS
+### For Superadmins
+- **Restaurant Management**: Invite and manage restaurant accounts
+- **Platform Overview**: Monitor all restaurants and orders
+- **Invitation System**: Private beta with invitation-only signup
+- **Analytics Dashboard**: Platform-wide statistics and insights
 
 ## 🛠 Tech Stack
 
@@ -36,6 +34,7 @@ A comprehensive QR ordering system for restaurants, cafés, and bars with Stripe
 - **Authentication**: Clerk
 - **Payments**: Stripe Connect Standard + Stripe Billing
 - **Real-time**: Supabase Realtime
+- **QR Codes**: qrcode library
 - **Deployment**: Vercel (recommended)
 
 ## 📋 Prerequisites
@@ -57,41 +56,24 @@ npm install
 
 ### 2. Environment Setup
 
-Copy the environment template and fill in your values:
-
-```bash
-cp env.example .env.local
-```
-
-Required environment variables:
+Create `.env.local`:
 
 ```env
 # Database
 DATABASE_URL="postgresql://username:password@localhost:5432/qr_orders"
 
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+CLERK_SECRET_KEY="sk_test_..."
 
 # Stripe
 STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_PUBLISHABLE_KEY="pk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# Stripe Connect
-STRIPE_CONNECT_RETURN_URL="http://localhost:3000/admin/settings"
-STRIPE_CONNECT_REFRESH_URL="http://localhost:3000/admin/settings"
-
-# Stripe Billing
-STRIPE_PRICE_ID_MVP_STANDARD="price_xxx"
-STRIPE_BILLING_PORTAL_RETURN_URL="http://localhost:3000/admin/billing"
-
-# Platform Fees (optional)
-PLATFORM_FEE_BPS=0
-PLATFORM_FEE_FIXED_CENTS=0
-
-# Clerk
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 # App
 APP_URL="http://localhost:3000"
@@ -101,174 +83,174 @@ APP_URL="http://localhost:3000"
 
 ```bash
 # Generate Prisma client
-npx prisma generate
+npm run db:generate
 
-# Run migrations
-npx prisma migrate dev
+# Push schema to database
+npx prisma db push
 
-# Seed the database
-npx prisma db seed
+# Seed with sample data
+npm run db:seed
 ```
 
-### 4. Start Development Server
+### 4. Start Development
 
 ```bash
 npm run dev
 ```
 
-Visit `http://localhost:3000` to see the application.
-
-## 🔧 Detailed Setup
-
-### Stripe Configuration
-
-#### 1. Create Stripe Account
-- Sign up at [stripe.com](https://stripe.com)
-- Enable Stripe Connect in your dashboard
-- Get your API keys from the Developers section
-
-#### 2. Set Up Webhooks
-```bash
-# Install Stripe CLI
-npm install -g stripe
-
-# Login to Stripe
-stripe login
-
-# Forward webhooks to localhost
-stripe listen --forward-to localhost:3000/api/stripe/webhook
-```
-
-Copy the webhook signing secret to your `.env.local`.
-
-#### 3. Create Billing Product
-1. Go to Stripe Dashboard → Products
-2. Create a new product: "QR Orders MVP Standard"
-3. Add a recurring price: $29/month
-4. Copy the price ID to `STRIPE_PRICE_ID_MVP_STANDARD`
-
-### Clerk Configuration
-
-1. Sign up at [clerk.com](https://clerk.com)
-2. Create a new application
-3. Enable Google OAuth (optional)
-4. Copy the API keys to your `.env.local`
-
-### Supabase Configuration
-
-1. Create a new project at [supabase.com](https://supabase.com)
-2. Go to Settings → API
-3. Copy the URL and anon key to your `.env.local`
-4. Enable Realtime for the `orders` table
-
-## 🧪 Testing the Complete Flow
-
-### 1. Restaurant Onboarding
-
-1. Visit `http://localhost:3000/onboarding`
-2. Complete the business profile
-3. Connect Stripe account (use test mode)
-4. Start 14-day trial
-5. Create tables
-6. Generate QR codes
-7. Set up menu
-
-### 2. Customer Ordering
-
-1. Scan a QR code or visit `/r/[slug]/t/[tableCode]`
-2. Browse menu and add items to cart
-3. Proceed to checkout
-4. Complete payment with test card: `4242 4242 4242 4242`
-5. View order status in real-time
-
-### 3. Staff Management
-
-1. Visit `/dashboard` to see the Kanban board
-2. Update order status by dragging cards
-3. View order details by clicking cards
-4. Manage menu at `/admin/menu`
-5. Generate QR codes at `/admin/qr`
-
-## 📱 Test Cards
-
-Use these Stripe test cards for testing:
-
-- **Success**: `4242 4242 4242 4242`
-- **Decline**: `4000 0000 0000 0002`
-- **3D Secure**: `4000 0025 0000 3155`
-- **Apple Pay**: Use Safari on iOS/macOS
-- **Google Pay**: Use Chrome on Android
-
 ## 🏗 Architecture
 
-### Database Schema
+### Multi-Tenant Design
+- Each restaurant is a separate tenant with isolated data
+- Staff users are scoped to their restaurant
+- Superadmin can manage all restaurants
 
-```sql
--- Core entities
-Restaurant (id, slug, name, stripeAccountId, billingCustomerId, ...)
-StaffUser (id, restaurantId, clerkUserId, role)
-Table (id, restaurantId, label, code)
-MenuCategory (id, restaurantId, name, sortOrder)
-MenuItem (id, restaurantId, categoryId, name, priceCents, ...)
-Modifier (id, menuItemId, name, type, priceDeltaCents, ...)
-Order (id, restaurantId, tableId, code, status, totalCents, ...)
-OrderItem (id, orderId, menuItemId, qty, unitPriceCents, ...)
-```
+### User Roles
+- **Superadmin**: Platform management, restaurant invitations
+- **Owner**: Full restaurant control, billing, staff management
+- **Manager**: Operations management, menu, orders
+- **Staff**: Order management only
 
 ### Payment Flow
+1. Customer places order
+2. Stripe Checkout with Direct Charges
+3. Payment goes directly to restaurant's Stripe account
+4. Platform can optionally take a fee
 
-1. **Customer** scans QR → browses menu → adds to cart
-2. **Checkout** creates Stripe Checkout session on restaurant's connected account
-3. **Payment** processes directly to restaurant's Stripe account
-4. **Webhook** marks order as PAID and broadcasts via Supabase Realtime
-5. **Dashboard** updates in real-time for staff
+## 📱 User Flows
 
-### Multi-tenancy
+### Restaurant Onboarding
+1. Superadmin sends invitation
+2. Restaurant owner accepts invitation
+3. Complete business profile setup
+4. Connect Stripe account
+5. Create tables and generate QR codes
+6. Set up menu items and categories
+7. Start accepting orders
 
-- All queries scoped by `restaurantId`
-- Middleware enforces restaurant access
-- Staff users linked to specific restaurants
-- Complete data isolation between restaurants
+### Customer Ordering
+1. Scan QR code at table
+2. Browse menu and add items to cart
+3. Customize items with modifiers
+4. Add special instructions
+5. Proceed to checkout
+6. Pay with Stripe (cards, Apple Pay, Google Pay)
+7. Track order status in real-time
+
+### Staff Management
+1. View incoming orders on dashboard
+2. Update order status (New → In Progress → Ready → Delivered)
+3. Manage menu availability
+4. Generate new QR codes as needed
+
+## 🔧 API Endpoints
+
+### Public Endpoints
+- `GET /api/restaurants/[slug]` - Get restaurant info and menu
+- `POST /api/checkout` - Create checkout session
+- `GET /api/orders/[id]` - Get order details
+
+### Admin Endpoints
+- `GET /api/orders` - List restaurant orders
+- `POST /api/orders/status` - Update order status
+- `GET /api/menu` - Get menu items
+- `POST /api/menu/items/availability` - Toggle item availability
+- `GET /api/tables` - List tables
+- `POST /api/tables` - Create table
+- `POST /api/qr/generate` - Generate QR code
+
+### Superadmin Endpoints
+- `POST /api/superadmin/invite` - Send restaurant invitation
+- `GET /api/invitations/[token]` - Get invitation details
+- `POST /api/invitations/[token]/accept` - Accept invitation
+
+## 🎨 Components
+
+### Core Components
+- `MenuGrid` - Display menu items by category
+- `CartBar` - Shopping cart with checkout
+- `ItemDrawer` - Item customization modal
+- `OrderTracker` - Real-time order status
+- `QRGenerator` - QR code management
+- `Navigation` - Role-based navigation
+
+### UI Components
+- Button, Card, Input, Label, Select
+- Badge, Toast, Modal
+- Responsive design with Tailwind CSS
 
 ## 🚀 Deployment
 
-### Vercel (Recommended)
-
+### Vercel Deployment
 1. Connect your GitHub repository to Vercel
 2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push to main
+3. Deploy automatically on push to main branch
 
 ### Environment Variables for Production
-
 ```env
-# Update URLs for production
+DATABASE_URL="postgresql://..."
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_..."
+CLERK_SECRET_KEY="sk_live_..."
+STRIPE_SECRET_KEY="sk_live_..."
+STRIPE_PUBLISHABLE_KEY="pk_live_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+NEXT_PUBLIC_SUPABASE_URL="https://..."
+NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
 APP_URL="https://your-domain.com"
-STRIPE_CONNECT_RETURN_URL="https://your-domain.com/admin/settings"
-STRIPE_CONNECT_REFRESH_URL="https://your-domain.com/admin/settings"
-STRIPE_BILLING_PORTAL_RETURN_URL="https://your-domain.com/admin/billing"
-```
-
-### Database Migration
-
-```bash
-# Run production migration
-npx prisma migrate deploy
 ```
 
 ## 🔒 Security
 
-- **Authentication**: Clerk handles all auth flows
-- **Authorization**: Server-side role checks and restaurant scoping
-- **Payments**: Stripe handles all payment processing
-- **Data**: PostgreSQL with proper indexing and constraints
-- **API**: Input validation with Zod schemas
+- Multi-tenant data isolation
+- Role-based access control
+- Stripe webhook signature verification
+- Input validation with Zod
+- SQL injection prevention with Prisma
 
 ## 📊 Monitoring
 
-- **Stripe Dashboard**: Monitor payments and subscriptions
-- **Supabase Dashboard**: Monitor database and realtime
-- **Vercel Analytics**: Monitor performance and errors
-- **Clerk Dashboard**: Monitor user authentication
+- Real-time order tracking
+- Order status updates
+- Payment confirmation
+- Error logging and handling
+
+## 🧪 Testing
+
+### Test the Complete Flow
+1. **Superadmin**: Visit `/superadmin` to invite a restaurant
+2. **Restaurant**: Accept invitation and complete setup
+3. **Customer**: Scan QR code and place an order
+4. **Staff**: Update order status in dashboard
+
+### Sample Data
+The seed script creates:
+- 1 Superadmin user
+- 1 Demo restaurant with sample menu
+- 3 Tables with QR codes
+- 1 Sample order
+
+## 🎯 Next Steps
+
+### Phase 1: Private Beta (Current)
+- Invitation-only restaurant signup
+- Basic order management
+- Stripe Connect integration
+
+### Phase 2: Public Launch
+- Public restaurant signup
+- Stripe Billing for subscriptions
+- Advanced analytics
+- Mobile app
+
+### Phase 3: Scale
+- Multi-language support
+- Advanced reporting
+- API for third-party integrations
+- White-label solutions
+
+## 📝 License
+
+This project is licensed under the MIT License.
 
 ## 🤝 Contributing
 
@@ -278,26 +260,10 @@ npx prisma migrate deploy
 4. Add tests if applicable
 5. Submit a pull request
 
-## 📄 License
+## 📞 Support
 
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-- **Documentation**: Check this README and code comments
-- **Issues**: Create GitHub issues for bugs or feature requests
-- **Stripe Support**: [support.stripe.com](https://support.stripe.com)
-- **Clerk Support**: [clerk.com/support](https://clerk.com/support)
-
-## 🎯 Roadmap
-
-- [ ] Advanced analytics and reporting
-- [ ] POS system integrations
-- [ ] Mobile app for staff
-- [ ] Multi-location support
-- [ ] Advanced customization options
-- [ ] API for third-party integrations
+For support, email support@qroders.com or create an issue in the repository.
 
 ---
 
-**Built with ❤️ for restaurants everywhere**
+**QR Orders** - Modernizing restaurant ordering, one QR code at a time. 🍽️📱

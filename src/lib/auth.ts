@@ -82,3 +82,79 @@ export async function requireRestaurantAccess(restaurantId: string) {
   }
   return true;
 }
+
+export async function getCurrentUser() {
+  // Check if Clerk is configured
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || 
+      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === 'pk_test_placeholder' ||
+      !process.env.CLERK_SECRET_KEY || 
+      process.env.CLERK_SECRET_KEY === 'sk_test_placeholder') {
+    return null;
+  }
+
+  try {
+    const { userId } = await auth();
+    if (!userId) return null;
+
+    // Check if user is superadmin
+    const superadminUser = await db.staffUser.findFirst({
+      where: { 
+        clerkUserId: userId,
+        role: 'SUPERADMIN'
+      },
+    });
+
+    if (superadminUser) {
+      return { ...superadminUser, isSuperadmin: true };
+    }
+
+    // Check if user is regular staff
+    const staffUser = await db.staffUser.findFirst({
+      where: { clerkUserId: userId },
+      include: { 
+        restaurant: {
+          include: {
+            staffUsers: true,
+          }
+        }
+      },
+    });
+
+    return staffUser ? { ...staffUser, isSuperadmin: false } : null;
+  } catch (error) {
+    console.error('Error getting current user:', error);
+    return null;
+  }
+}
+
+export async function requireSuperadmin() {
+  const user = await getCurrentUser();
+  if (!user || !user.isSuperadmin) {
+    throw new Error('Superadmin access required');
+  }
+  return user;
+}
+
+export async function requireRole(requiredRole: StaffRole) {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('Authentication required');
+  }
+
+  // Superadmin can do anything
+  if (user.role === 'SUPERADMIN') {
+    return user;
+  }
+
+  const roleHierarchy = {
+    STAFF: 1,
+    MANAGER: 2,
+    OWNER: 3
+  };
+  
+  if (roleHierarchy[user.role] < roleHierarchy[requiredRole]) {
+    throw new Error('Insufficient permissions');
+  }
+  
+  return user;
+}

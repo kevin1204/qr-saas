@@ -4,27 +4,44 @@ import { createCheckoutSession } from '@/lib/stripe';
 import { z } from 'zod';
 
 const checkoutSchema = z.object({
-  restaurantSlug: z.string(),
-  tableCode: z.string(),
+  restaurantId: z.string(),
+  tableId: z.string().optional(),
   items: z.array(z.object({
     menuItemId: z.string(),
-    quantity: z.number().min(1),
-    modifiers: z.array(z.string()).optional(),
+    qty: z.number().min(1),
+    unitPriceCents: z.number(),
     notes: z.string().optional(),
+    modifiers: z.array(z.object({
+      name: z.string(),
+      priceDeltaCents: z.number()
+    })).optional(),
   })),
-  tip: z.number().min(0).default(0),
-  email: z.string().email().optional(),
+  subtotalCents: z.number(),
+  taxCents: z.number(),
+  tipCents: z.number(),
+  totalCents: z.number(),
+  customerName: z.string().optional(),
+  customerEmail: z.string().email().optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { restaurantSlug, tableCode, items, tip, email } = checkoutSchema.parse(body);
+    const { 
+      restaurantId, 
+      tableId, 
+      items, 
+      subtotalCents, 
+      taxCents, 
+      tipCents, 
+      totalCents, 
+      customerName, 
+      customerEmail 
+    } = checkoutSchema.parse(body);
 
-    // Get restaurant and table
+    // Get restaurant
     const restaurant = await db.restaurant.findUnique({
-      where: { slug: restaurantSlug },
-      include: { tables: true },
+      where: { id: restaurantId },
     });
 
     if (!restaurant) {
@@ -38,108 +55,104 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const table = restaurant.tables.find(t => t.code === tableCode);
-    if (!table) {
-      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
+    // Get table if provided
+    let table = null;
+    if (tableId) {
+      table = await db.table.findUnique({
+        where: { id: tableId },
+      });
     }
 
-    // Get menu items and validate
+    // Get menu items for validation
     const menuItems = await db.menuItem.findMany({
       where: { 
         restaurantId: restaurant.id,
         id: { in: items.map(item => item.menuItemId) }
       },
-      include: { modifiers: true },
     });
 
-    // Calculate total
-    let subtotal = 0;
-    const lineItems = [];
-    const orderItems = [];
-
+    // Validate items are available
     for (const item of items) {
       const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
       if (!menuItem || !menuItem.isAvailable) {
         return NextResponse.json({ error: 'Item not available' }, { status: 400 });
       }
+    }
 
-      let itemTotal = menuItem.priceCents * item.quantity;
-      let modifierData = null;
-      
-      // Add modifier costs
-      if (item.modifiers && item.modifiers.length > 0) {
-        modifierData = [];
-        for (const modifierId of item.modifiers) {
-          const modifier = menuItem.modifiers.find(m => m.id === modifierId);
-          if (modifier) {
-            itemTotal += modifier.priceDeltaCents * item.quantity;
-            modifierData.push({
-              id: modifier.id,
-              name: modifier.name,
-              priceDeltaCents: modifier.priceDeltaCents,
-            });
-          }
-        }
-      }
-
-      subtotal += itemTotal;
+    // Create line items for Stripe
+    const lineItems = [];
+    
+    // Add individual items
+    for (const item of items) {
+      const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
+      const itemTotal = item.unitPriceCents * item.qty;
+      const modifierTotal = (item.modifiers || []).reduce((sum, mod) => sum + mod.priceDeltaCents, 0) * item.qty;
+      const totalItemPrice = itemTotal + modifierTotal;
 
       lineItems.push({
         price_data: {
           currency: restaurant.currency.toLowerCase(),
           product_data: {
-            name: menuItem.name,
-            description: menuItem.description,
-            images: menuItem.imageUrl ? [menuItem.imageUrl] : undefined,
+            name: menuItem?.name || 'Menu Item',
+            description: item.notes || undefined,
           },
-          unit_amount: itemTotal / item.quantity,
+          unit_amount: totalItemPrice / item.qty,
         },
-        quantity: item.quantity,
-      });
-
-      orderItems.push({
-        menuItemId: menuItem.id,
-        quantity: item.quantity,
-        unitPriceCents: menuItem.priceCents,
-        notes: item.notes,
-        modifiers: modifierData,
+        quantity: item.qty,
       });
     }
 
-    // Add tip
-    if (tip > 0) {
+    // Add tax if applicable
+    if (taxCents > 0) {
+      lineItems.push({
+        price_data: {
+          currency: restaurant.currency.toLowerCase(),
+          product_data: {
+            name: 'Tax',
+          },
+          unit_amount: taxCents,
+        },
+        quantity: 1,
+      });
+    }
+
+    // Add tip if applicable
+    if (tipCents > 0) {
       lineItems.push({
         price_data: {
           currency: restaurant.currency.toLowerCase(),
           product_data: {
             name: 'Tip',
           },
-          unit_amount: tip,
+          unit_amount: tipCents,
         },
         quantity: 1,
       });
     }
 
-    const total = subtotal + tip;
-
     // Create order
     const order = await db.order.create({
       data: {
         restaurantId: restaurant.id,
-        tableId: table.id,
+        tableId: table?.id,
         code: `ORD-${Date.now()}`,
-        totalCents: total,
+        subtotalCents,
+        taxCents,
+        tipCents,
+        totalCents,
+        customerName,
+        customerEmail,
         status: 'NEW',
       },
     });
 
     // Create order items
-    for (const item of orderItems) {
+    for (const item of items) {
       await db.orderItem.create({
         data: {
           orderId: order.id,
           menuItemId: item.menuItemId,
-          qty: item.quantity,
+          qty: item.qty,
           unitPriceCents: item.unitPriceCents,
           notes: item.notes,
           modifiers: item.modifiers,
@@ -153,12 +166,14 @@ export async function POST(request: NextRequest) {
       stripeAccountId: restaurant.stripeAccountId!,
       lineItems,
       successUrl: `${process.env.APP_URL}/order/${order.id}?success=1`,
-      cancelUrl: `${process.env.APP_URL}/r/${restaurant.slug}/t/${table.code}?canceled=1`,
-      customerEmail: email,
+      cancelUrl: table ? 
+        `${process.env.APP_URL}/r/${restaurant.slug}/t/${table.code}?canceled=1` :
+        `${process.env.APP_URL}/r/${restaurant.slug}?canceled=1`,
+      customerEmail,
       metadata: {
         orderId: order.id,
         restaurantId: restaurant.id,
-        tableCode: table.code,
+        tableCode: table?.code || 'pickup',
       },
     });
 
@@ -168,7 +183,11 @@ export async function POST(request: NextRequest) {
       data: { stripeSessionId: session.id },
     });
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ 
+      success: true,
+      orderId: order.id,
+      url: session.url 
+    });
   } catch (error) {
     console.error('Checkout error:', error);
     

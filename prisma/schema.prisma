@@ -40,6 +40,7 @@ model Restaurant {
   menuItems     MenuItem[]
   orders        Order[]
   staffUsers    StaffUser[]
+  invitations   Invitation[]
 
   @@map("restaurants")
 }
@@ -133,9 +134,14 @@ model Order {
   tableId         String?
   code            String
   status          OrderStatus @default(NEW) // NEW, PAID, IN_PROGRESS, READY, DELIVERED, CANCELED
+  subtotalCents   Int
+  tipCents        Int         @default(0)
+  taxCents        Int         @default(0)
   totalCents      Int
   stripeSessionId String?
   notes           String?
+  customerName    String?
+  customerEmail   String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -181,7 +187,25 @@ enum OrderStatus {
 }
 
 enum StaffRole {
+  SUPERADMIN
   OWNER
   MANAGER
   STAFF
+}
+
+model Invitation {
+  id           String   @id @default(cuid())
+  email        String
+  role         StaffRole
+  restaurantId String?
+  token        String   @unique
+  expiresAt    DateTime
+  acceptedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("invitations")
 }
