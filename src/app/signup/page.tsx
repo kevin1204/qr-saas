@@ -28,30 +28,82 @@ export default function SignupPage() {
     description: '',
     
     // Step 3: Plan Selection
-    plan: 'starter',
-    
-    // Step 4: Table Setup
-    tableCount: 5,
-    tableNames: [] as string[]
+    plan: 'starter'
   });
+
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const steps = [
     { id: 1, title: 'Account Setup', description: 'Create your account' },
     { id: 2, title: 'Restaurant Info', description: 'Tell us about your business' },
     { id: 3, title: 'Choose Plan', description: 'Select your pricing plan' },
-    { id: 4, title: 'Table Setup', description: 'Configure your tables' },
-    { id: 5, title: 'Complete', description: 'You\'re all set!' }
+    { id: 4, title: 'Complete', description: 'You\'re all set!' }
   ];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     });
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors({
+        ...errors,
+        [name]: ''
+      });
+    }
+  };
+
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (step === 1) {
+      if (!formData.restaurantName.trim()) {
+        newErrors.restaurantName = 'Restaurant name is required';
+      }
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        newErrors.email = 'Email is invalid';
+      }
+      if (!formData.password) {
+        newErrors.password = 'Password is required';
+      } else if (formData.password.length < 6) {
+        newErrors.password = 'Password must be at least 6 characters';
+      }
+      if (!formData.confirmPassword) {
+        newErrors.confirmPassword = 'Please confirm your password';
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
+    }
+
+    if (step === 2) {
+      if (!formData.address.trim()) {
+        newErrors.address = 'Address is required';
+      }
+      if (!formData.city.trim()) {
+        newErrors.city = 'City is required';
+      }
+      if (!formData.state.trim()) {
+        newErrors.state = 'State is required';
+      }
+      if (!formData.zipCode.trim()) {
+        newErrors.zipCode = 'ZIP code is required';
+      }
+      if (!formData.phone.trim()) {
+        newErrors.phone = 'Phone number is required';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleNext = () => {
-    if (currentStep < 5) {
+    if (validateStep(currentStep) && currentStep < 4) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -62,24 +114,29 @@ export default function SignupPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Account created successfully! Redirecting to dashboard...');
-    // In a real app, this would redirect to the restaurant dashboard
-    window.location.href = '/restaurant';
+    
+    if (!validateStep(currentStep)) {
+      return;
+    }
+
+    try {
+      // Here you would normally create the account with Clerk
+      // For now, we'll simulate the process
+      console.log('Form submitted:', formData);
+      
+      // Simulate account creation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+    } catch (error) {
+      console.error('Error creating account:', error);
+      alert('Error creating account. Please try again.');
+    }
   };
 
-  const generateTableNames = () => {
-    const names = [];
-    for (let i = 1; i <= formData.tableCount; i++) {
-      names.push(`Table ${i}`);
-    }
-    setFormData({
-      ...formData,
-      tableNames: names
-    });
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -144,15 +201,13 @@ export default function SignupPage() {
                   {currentStep === 1 && 'Create Your Account'}
                   {currentStep === 2 && 'Restaurant Information'}
                   {currentStep === 3 && 'Choose Your Plan'}
-                  {currentStep === 4 && 'Table Configuration'}
-                  {currentStep === 5 && 'Welcome to QR Orders!'}
+                  {currentStep === 4 && 'Welcome to QR Orders!'}
                 </CardTitle>
                 <CardDescription>
                   {currentStep === 1 && 'Let\'s get started with your account details'}
                   {currentStep === 2 && 'Tell us about your restaurant'}
                   {currentStep === 3 && 'Select the plan that fits your needs'}
-                  {currentStep === 4 && 'Set up your tables for QR code generation'}
-                  {currentStep === 5 && 'Your account is ready to use'}
+                  {currentStep === 4 && 'Your account is ready to use'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -203,7 +258,11 @@ export default function SignupPage() {
                             value={formData.password}
                             onChange={handleInputChange}
                             placeholder="Create a password"
+                            className={errors.password ? 'border-red-500' : ''}
                           />
+                          {errors.password && (
+                            <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+                          )}
                         </div>
                         <div>
                           <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
@@ -217,7 +276,11 @@ export default function SignupPage() {
                             value={formData.confirmPassword}
                             onChange={handleInputChange}
                             placeholder="Confirm your password"
+                            className={errors.confirmPassword ? 'border-red-500' : ''}
                           />
+                          {errors.confirmPassword && (
+                            <p className="text-red-500 text-sm mt-1">{errors.confirmPassword}</p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -369,57 +432,8 @@ export default function SignupPage() {
                     </div>
                   )}
 
-                  {/* Step 4: Table Setup */}
+                  {/* Step 4: Complete */}
                   {currentStep === 4 && (
-                    <div className="space-y-6">
-                      <div>
-                        <label htmlFor="tableCount" className="block text-sm font-medium text-gray-700 mb-2">
-                          Number of Tables *
-                        </label>
-                        <Input
-                          id="tableCount"
-                          name="tableCount"
-                          type="number"
-                          min="1"
-                          max="100"
-                          required
-                          value={formData.tableCount}
-                          onChange={handleInputChange}
-                          placeholder="5"
-                        />
-                        <p className="text-sm text-gray-500 mt-1">
-                          How many tables do you have in your restaurant?
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={generateTableNames}
-                          className="w-full"
-                        >
-                          Generate Table Names
-                        </Button>
-                      </div>
-                      
-                      {formData.tableNames.length > 0 && (
-                        <div>
-                          <h4 className="font-medium text-gray-900 mb-3">Your Tables:</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                            {formData.tableNames.map((name, index) => (
-                              <Badge key={index} variant="outline" className="p-2">
-                                {name}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Step 5: Complete */}
-                  {currentStep === 5 && (
                     <div className="text-center space-y-6">
                       <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
                         <Check className="w-8 h-8 text-green-600" />
@@ -456,7 +470,7 @@ export default function SignupPage() {
                       Previous
                     </Button>
                     
-                    {currentStep < 5 ? (
+                    {currentStep < 4 ? (
                       <Button type="button" onClick={handleNext}>
                         Next
                         <ArrowRight className="w-4 h-4 ml-2" />
