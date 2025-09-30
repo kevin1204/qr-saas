@@ -20,6 +20,7 @@ export default function middleware(req: any) {
     '/contact', 
     '/pricing',
     '/signup',
+    '/dashboard',
     '/qr-test',
     '/qr-display',
     '/r/(.*)',
