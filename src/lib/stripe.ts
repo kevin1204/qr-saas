@@ -1,13 +1,16 @@
 import Stripe from 'stripe';
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error('STRIPE_SECRET_KEY is not set');
-}
+// Only initialize Stripe if we have a real secret key (not placeholder)
+const isStripeConfigured = process.env.STRIPE_SECRET_KEY && 
+  !process.env.STRIPE_SECRET_KEY.includes('placeholder') &&
+  process.env.STRIPE_SECRET_KEY.startsWith('sk_');
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: '2024-06-20',
-  typescript: true,
-});
+export const stripe = isStripeConfigured 
+  ? new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2024-06-20',
+      typescript: true,
+    })
+  : null;
 
 // Platform fee configuration
 export const PLATFORM_FEE_BPS = parseInt(process.env.PLATFORM_FEE_BPS || '0');
@@ -20,6 +23,7 @@ export function calculatePlatformFee(amountCents: number): number {
 
 // Stripe Connect utilities
 export async function createConnectedAccount(restaurantName: string, email: string) {
+  if (!stripe) throw new Error('Stripe is not configured');
   return await stripe.accounts.create({
     type: 'standard',
     country: 'US', // You might want to make this configurable
@@ -31,6 +35,7 @@ export async function createConnectedAccount(restaurantName: string, email: stri
 }
 
 export async function createAccountLink(accountId: string, returnUrl: string, refreshUrl: string) {
+  if (!stripe) throw new Error('Stripe is not configured');
   return await stripe.accountLinks.create({
     account: accountId,
     return_url: returnUrl,
@@ -40,6 +45,7 @@ export async function createAccountLink(accountId: string, returnUrl: string, re
 }
 
 export async function getAccountStatus(accountId: string) {
+  if (!stripe) throw new Error('Stripe is not configured');
   const account = await stripe.accounts.retrieve(accountId);
   return {
     chargesEnabled: account.charges_enabled,
@@ -49,11 +55,13 @@ export async function getAccountStatus(accountId: string) {
 }
 
 export async function createLoginLink(accountId: string) {
+  if (!stripe) throw new Error('Stripe is not configured');
   return await stripe.accounts.createLoginLink(accountId);
 }
 
 // Stripe Billing utilities
 export async function createBillingCustomer(email: string, name: string) {
+  if (!stripe) throw new Error('Stripe is not configured');
   return await stripe.customers.create({
     email,
     name,
@@ -61,6 +69,7 @@ export async function createBillingCustomer(email: string, name: string) {
 }
 
 export async function createSubscription(customerId: string, priceId: string, trialDays: number = 14) {
+  if (!stripe) throw new Error('Stripe is not configured');
   return await stripe.subscriptions.create({
     customer: customerId,
     items: [{ price: priceId }],
@@ -72,6 +81,7 @@ export async function createSubscription(customerId: string, priceId: string, tr
 }
 
 export async function createBillingPortalSession(customerId: string, returnUrl: string) {
+  if (!stripe) throw new Error('Stripe is not configured');
   return await stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
@@ -96,6 +106,8 @@ export async function createCheckoutSession({
   customerEmail?: string;
   metadata: Record<string, string>;
 }) {
+  if (!stripe) throw new Error('Stripe is not configured');
+  
   const platformFee = calculatePlatformFee(
     lineItems.reduce((total, item) => total + (item.amount || 0) * (item.quantity || 1), 0)
   );
