@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { getCurrentStaffUser } from '@/lib/auth'
 import { MenuManagement } from '@/components/MenuManagement'
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export default async function AdminMenuPage() {
   const staffUser = await getCurrentStaffUser()
 

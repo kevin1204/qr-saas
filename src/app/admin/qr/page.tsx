@@ -2,6 +2,9 @@ import { redirect } from 'next/navigation'
 import { getCurrentStaffUser } from '@/lib/auth'
 import { QRGenerator } from '@/components/QRGenerator'
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic'
+
 export default async function AdminQRPage() {
   const staffUser = await getCurrentStaffUser()
 
