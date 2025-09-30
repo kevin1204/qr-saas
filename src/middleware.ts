@@ -29,7 +29,11 @@ export default function middleware(req: any) {
 
   return clerkMiddleware((auth: any) => {
     if (!isPublicRoute(req)) {
-      auth().protect()
+      // In Clerk v5+, we need to check if user is authenticated and redirect if not
+      const { userId } = auth()
+      if (!userId) {
+        return NextResponse.redirect(new URL('/signup', req.url))
+      }
     }
   })(req)
 }
