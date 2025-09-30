@@ -3,11 +3,31 @@ CREATE TABLE "restaurants" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "slug" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "address" TEXT,
     "currency" TEXT NOT NULL DEFAULT 'USD',
-    "timezone" TEXT NOT NULL DEFAULT 'America/Toronto',
-    "contactEmail" TEXT,
+    "timezone" TEXT NOT NULL DEFAULT 'America/New_York',
+    "serviceType" TEXT NOT NULL DEFAULT 'TABLE',
+    "taxRateBps" INTEGER NOT NULL DEFAULT 0,
+    "defaultTipBps" INTEGER NOT NULL DEFAULT 0,
+    "stripeAccountId" TEXT,
+    "chargesEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "payoutsEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "billingCustomerId" TEXT,
+    "billingSubscriptionId" TEXT,
+    "trialEndsAt" DATETIME,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "staff_users" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "restaurantId" TEXT NOT NULL,
+    "clerkUserId" TEXT NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'STAFF',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "staff_users_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "restaurants" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateTable
@@ -54,7 +74,7 @@ CREATE TABLE "modifiers" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "menuItemId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "type" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'SINGLE',
     "priceDeltaCents" INTEGER NOT NULL DEFAULT 0,
     "isRequired" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -83,7 +103,7 @@ CREATE TABLE "order_items" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "orderId" TEXT NOT NULL,
     "menuItemId" TEXT NOT NULL,
-    "quantity" INTEGER NOT NULL,
+    "qty" INTEGER NOT NULL,
     "unitPriceCents" INTEGER NOT NULL,
     "notes" TEXT,
     "modifiers" JSONB,
@@ -93,28 +113,14 @@ CREATE TABLE "order_items" (
     CONSTRAINT "order_items_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "menu_items" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- CreateTable
-CREATE TABLE "staff_users" (
-    "id" TEXT NOT NULL PRIMARY KEY,
-    "restaurantId" TEXT NOT NULL,
-    "clerkUserId" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'STAFF',
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "staff_users_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "restaurants" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-);
-
 -- CreateIndex
 CREATE UNIQUE INDEX "restaurants_slug_key" ON "restaurants"("slug");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "tables_restaurantId_label_key" ON "tables"("restaurantId", "label");
-
--- CreateIndex
-CREATE UNIQUE INDEX "tables_restaurantId_code_key" ON "tables"("restaurantId", "code");
-
--- CreateIndex
-CREATE UNIQUE INDEX "orders_code_key" ON "orders"("code");
+CREATE UNIQUE INDEX "restaurants_stripeAccountId_key" ON "restaurants"("stripeAccountId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "staff_users_clerkUserId_key" ON "staff_users"("clerkUserId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "tables_restaurantId_code_key" ON "tables"("restaurantId", "code");

@@ -1,297 +1,463 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, StaffRole, ModifierType, OrderStatus } from '@prisma/client';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting database seed...')
+  console.log('🌱 Starting database seed...');
 
-  // Create Reset restaurant
-  const restaurant = await prisma.restaurant.upsert({
-    where: { slug: 'reset' },
-    update: {},
-    create: {
-      slug: 'reset',
-      name: 'Reset',
-      currency: 'CAD',
-      timezone: 'America/Toronto',
-      contactEmail: 'hello@reset.com',
+  // Create demo restaurant
+  const restaurant = await prisma.restaurant.create({
+    data: {
+      slug: 'demo-restaurant',
+      name: 'Demo Restaurant',
+      address: '123 Main St, City, State 12345',
+      currency: 'USD',
+      timezone: 'America/New_York',
+      serviceType: 'TABLE',
+      taxRateBps: 875, // 8.75%
+      defaultTipBps: 1800, // 18%
+      // Demo Stripe account (test mode)
+      stripeAccountId: 'acct_demo_1234567890',
+      chargesEnabled: true,
+      payoutsEnabled: true,
+      // Demo billing customer
+      billingCustomerId: 'cus_demo_1234567890',
+      billingSubscriptionId: 'sub_demo_1234567890',
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
     },
-  })
+  });
 
-  console.log('✅ Created restaurant:', restaurant.name)
+  console.log(`✅ Created restaurant: ${restaurant.name}`);
 
-  // Create tables T1-T8
-  const tables = []
-  for (let i = 1; i <= 8; i++) {
-    const table = await prisma.table.upsert({
-      where: { 
-        restaurantId_code: {
-          restaurantId: restaurant.id,
-          code: `T${i}`
-        }
-      },
-      update: {},
-      create: {
+  // Create demo staff user
+  const staffUser = await prisma.staffUser.create({
+    data: {
+      restaurantId: restaurant.id,
+      clerkUserId: 'demo_clerk_user_123',
+      role: StaffRole.OWNER,
+    },
+  });
+
+  console.log(`✅ Created staff user: ${staffUser.role}`);
+
+  // Create tables
+  const tables = await Promise.all([
+    prisma.table.create({
+      data: {
         restaurantId: restaurant.id,
-        label: `Table ${i}`,
-        code: `T${i}`,
+        label: 'Table 1',
+        code: 'T1',
       },
-    })
-    tables.push(table)
-  }
+    }),
+    prisma.table.create({
+      data: {
+        restaurantId: restaurant.id,
+        label: 'Table 2',
+        code: 'T2',
+      },
+    }),
+    prisma.table.create({
+      data: {
+        restaurantId: restaurant.id,
+        label: 'Table 3',
+        code: 'T3',
+      },
+    }),
+    prisma.table.create({
+      data: {
+        restaurantId: restaurant.id,
+        label: 'Table 4',
+        code: 'T4',
+      },
+    }),
+    prisma.table.create({
+      data: {
+        restaurantId: restaurant.id,
+        label: 'Table 5',
+        code: 'T5',
+      },
+    }),
+  ]);
 
-  console.log('✅ Created tables:', tables.length)
+  console.log(`✅ Created ${tables.length} tables`);
 
   // Create menu categories
-  const categories = []
-  
-  // Check if categories already exist
-  const existingCategories = await prisma.menuCategory.findMany({
-    where: { restaurantId: restaurant.id }
-  })
-  
-  if (existingCategories.length === 0) {
-    categories.push(
-      await prisma.menuCategory.create({
-        data: {
-          restaurantId: restaurant.id,
-          name: 'Coffee',
-          sortOrder: 1,
-        },
-      }),
-      await prisma.menuCategory.create({
-        data: {
-          restaurantId: restaurant.id,
-          name: 'Tea',
-          sortOrder: 2,
-        },
-      }),
-      await prisma.menuCategory.create({
-        data: {
-          restaurantId: restaurant.id,
-          name: 'Pastries',
-          sortOrder: 3,
-        },
-      })
-    )
-  } else {
-    categories.push(...existingCategories)
-  }
+  const appetizers = await prisma.menuCategory.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: 'Appetizers',
+      sortOrder: 1,
+    },
+  });
 
-  console.log('✅ Created categories:', categories.length)
+  const mains = await prisma.menuCategory.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: 'Main Courses',
+      sortOrder: 2,
+    },
+  });
+
+  const desserts = await prisma.menuCategory.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: 'Desserts',
+      sortOrder: 3,
+    },
+  });
+
+  const beverages = await prisma.menuCategory.create({
+    data: {
+      restaurantId: restaurant.id,
+      name: 'Beverages',
+      sortOrder: 4,
+    },
+  });
+
+  console.log(`✅ Created 4 menu categories`);
 
   // Create menu items
-  const existingItems = await prisma.menuItem.findMany({
-    where: { restaurantId: restaurant.id }
-  })
-  
-  let menuItems = []
-  
-  if (existingItems.length === 0) {
-    menuItems = await Promise.all([
-      // Coffee items
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[0].id,
-          name: 'Espresso',
-          priceCents: 350,
-          description: 'Rich and bold single shot',
-          isAvailable: true,
-          sortOrder: 1,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[0].id,
-          name: 'Americano',
-          priceCents: 425,
-          description: 'Espresso with hot water',
-          isAvailable: true,
-          sortOrder: 2,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[0].id,
-          name: 'Cappuccino',
-          priceCents: 475,
-          description: 'Espresso with steamed milk and foam',
-          isAvailable: true,
-          sortOrder: 3,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[0].id,
-          name: 'Latte',
-          priceCents: 525,
-          description: 'Espresso with steamed milk',
-          isAvailable: true,
-          sortOrder: 4,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[0].id,
-          name: 'Cold Brew',
-          priceCents: 450,
-          description: 'Smooth cold-brewed coffee',
-          isAvailable: true,
-          sortOrder: 5,
-        },
-      }),
+  const menuItems = await Promise.all([
+    // Appetizers
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: appetizers.id,
+        name: 'Buffalo Wings',
+        priceCents: 1299,
+        description: 'Crispy wings tossed in our signature buffalo sauce',
+        imageUrl: 'https://images.unsplash.com/photo-1567620832904-9fe5cf23db13?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 1,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: appetizers.id,
+        name: 'Loaded Nachos',
+        priceCents: 1199,
+        description: 'Tortilla chips loaded with cheese, jalapeños, and sour cream',
+        imageUrl: 'https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 2,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: appetizers.id,
+        name: 'Caesar Salad',
+        priceCents: 899,
+        description: 'Fresh romaine lettuce with parmesan cheese and croutons',
+        imageUrl: 'https://images.unsplash.com/photo-1546793665-c74683f339c1?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 3,
+      },
+    }),
 
-      // Tea items
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[1].id,
-          name: 'Green Tea',
-          priceCents: 375,
-          description: 'Fresh green tea leaves',
-          isAvailable: true,
-          sortOrder: 1,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[1].id,
-          name: 'Earl Grey',
-          priceCents: 375,
-          description: 'Classic bergamot black tea',
-          isAvailable: true,
-          sortOrder: 2,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[1].id,
-          name: 'Chai Latte',
-          priceCents: 525,
-          description: 'Spiced tea with steamed milk',
-          isAvailable: true,
-          sortOrder: 3,
-        },
-      }),
+    // Main Courses
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: mains.id,
+        name: 'Grilled Salmon',
+        priceCents: 2499,
+        description: 'Fresh Atlantic salmon grilled to perfection with lemon herb butter',
+        imageUrl: 'https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 1,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: mains.id,
+        name: 'Ribeye Steak',
+        priceCents: 3299,
+        description: '12oz ribeye steak cooked to your preference',
+        imageUrl: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 2,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: mains.id,
+        name: 'Chicken Parmesan',
+        priceCents: 1999,
+        description: 'Breaded chicken breast with marinara sauce and mozzarella',
+        imageUrl: 'https://images.unsplash.com/photo-1562967914-608f82629710?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 3,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: mains.id,
+        name: 'Vegetarian Pasta',
+        priceCents: 1699,
+        description: 'Penne pasta with seasonal vegetables in garlic olive oil',
+        imageUrl: 'https://images.unsplash.com/photo-1621996346565-e3dbc353d2e5?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 4,
+      },
+    }),
 
-      // Pastry items
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[2].id,
-          name: 'Croissant',
-          priceCents: 425,
-          description: 'Buttery, flaky pastry',
-          isAvailable: true,
-          sortOrder: 1,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[2].id,
-          name: 'Muffin',
-          priceCents: 375,
-          description: 'Fresh baked muffin (blueberry or chocolate)',
-          isAvailable: true,
-          sortOrder: 2,
-        },
-      }),
-      prisma.menuItem.create({
-        data: {
-          restaurantId: restaurant.id,
-          categoryId: categories[2].id,
-          name: 'Danish',
-          priceCents: 450,
-          description: 'Sweet pastry with fruit filling',
-          isAvailable: true,
-          sortOrder: 3,
-        },
-      }),
-    ])
-  } else {
-    menuItems = existingItems
-  }
+    // Desserts
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: desserts.id,
+        name: 'Chocolate Lava Cake',
+        priceCents: 899,
+        description: 'Warm chocolate cake with molten center, served with vanilla ice cream',
+        imageUrl: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 1,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: desserts.id,
+        name: 'Tiramisu',
+        priceCents: 799,
+        description: 'Classic Italian dessert with coffee-soaked ladyfingers',
+        imageUrl: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 2,
+      },
+    }),
 
-  console.log('✅ Created menu items:', menuItems.length)
+    // Beverages
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: beverages.id,
+        name: 'Craft Beer',
+        priceCents: 699,
+        description: 'Selection of local craft beers',
+        imageUrl: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 1,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: beverages.id,
+        name: 'House Wine',
+        priceCents: 899,
+        description: 'Red or white wine by the glass',
+        imageUrl: 'https://images.unsplash.com/photo-1506377247375-2616b612b786?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 2,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: restaurant.id,
+        categoryId: beverages.id,
+        name: 'Fresh Lemonade',
+        priceCents: 399,
+        description: 'Freshly squeezed lemonade with mint',
+        imageUrl: 'https://images.unsplash.com/photo-1621263764928-df1444c5e859?w=400&h=300&fit=crop',
+        isAvailable: true,
+        sortOrder: 3,
+      },
+    }),
+  ]);
 
-  // Create some modifiers for coffee items
-  const coffeeItems = menuItems.filter(item => 
-    item.name === 'Espresso' || item.name === 'Americano' || 
-    item.name === 'Cappuccino' || item.name === 'Latte'
-  )
+  console.log(`✅ Created ${menuItems.length} menu items`);
 
-  const existingModifiers = await prisma.modifier.findMany({
-    where: { menuItemId: { in: coffeeItems.map(item => item.id) } }
-  })
+  // Create modifiers for some items
+  const salmon = menuItems.find(item => item.name === 'Grilled Salmon');
+  const steak = menuItems.find(item => item.name === 'Ribeye Steak');
+  const pasta = menuItems.find(item => item.name === 'Vegetarian Pasta');
 
-  if (existingModifiers.length === 0) {
-    for (const item of coffeeItems) {
-      await prisma.modifier.create({
-        data: {
-          menuItemId: item.id,
-          name: 'Size',
-          type: 'SINGLE',
+  if (salmon) {
+    await prisma.modifier.createMany({
+      data: [
+        {
+          menuItemId: salmon.id,
+          name: 'Cooking Temperature',
+          type: ModifierType.SINGLE,
           priceDeltaCents: 0,
           isRequired: true,
         },
-      })
-
-      await prisma.modifier.create({
-        data: {
-          menuItemId: item.id,
-          name: 'Extra Shot',
-          type: 'SINGLE',
-          priceDeltaCents: 75,
+        {
+          menuItemId: salmon.id,
+          name: 'Extra Sauce',
+          type: ModifierType.SINGLE,
+          priceDeltaCents: 200,
           isRequired: false,
         },
-      })
-    }
+      ],
+    });
   }
 
-  console.log('✅ Created modifiers for coffee items')
+  if (steak) {
+    await prisma.modifier.createMany({
+      data: [
+        {
+          menuItemId: steak.id,
+          name: 'Cooking Temperature',
+          type: ModifierType.SINGLE,
+          priceDeltaCents: 0,
+          isRequired: true,
+        },
+        {
+          menuItemId: steak.id,
+          name: 'Add Shrimp',
+          type: ModifierType.SINGLE,
+          priceDeltaCents: 800,
+          isRequired: false,
+        },
+        {
+          menuItemId: steak.id,
+          name: 'Side Options',
+          type: ModifierType.MULTI,
+          priceDeltaCents: 0,
+          isRequired: false,
+        },
+      ],
+    });
+  }
 
-  // Create a demo staff user (will need to be linked to Clerk user after first login)
-  const existingStaffUser = await prisma.staffUser.findFirst({
-    where: { clerkUserId: 'demo-user' }
-  })
+  if (pasta) {
+    await prisma.modifier.createMany({
+      data: [
+        {
+          menuItemId: pasta.id,
+          name: 'Extra Vegetables',
+          type: ModifierType.SINGLE,
+          priceDeltaCents: 300,
+          isRequired: false,
+        },
+        {
+          menuItemId: pasta.id,
+          name: 'Add Protein',
+          type: ModifierType.SINGLE,
+          priceDeltaCents: 500,
+          isRequired: false,
+        },
+      ],
+    });
+  }
 
-  let staffUser
-  if (!existingStaffUser) {
-    staffUser = await prisma.staffUser.create({
+  console.log(`✅ Created modifiers for menu items`);
+
+  // Create some sample orders
+  const order1 = await prisma.order.create({
+    data: {
+      restaurantId: restaurant.id,
+      tableId: tables[0].id,
+      code: 'ORD-001',
+      status: OrderStatus.PAID,
+      totalCents: 3798, // $37.98
+      stripeSessionId: 'cs_test_demo_001',
+      notes: 'Extra napkins please',
+    },
+  });
+
+  const order2 = await prisma.order.create({
+    data: {
+      restaurantId: restaurant.id,
+      tableId: tables[1].id,
+      code: 'ORD-002',
+      status: OrderStatus.IN_PROGRESS,
+      totalCents: 2499, // $24.99
+      stripeSessionId: 'cs_test_demo_002',
+    },
+  });
+
+  const order3 = await prisma.order.create({
+    data: {
+      restaurantId: restaurant.id,
+      tableId: tables[2].id,
+      code: 'ORD-003',
+      status: OrderStatus.READY,
+      totalCents: 1699, // $16.99
+      stripeSessionId: 'cs_test_demo_003',
+    },
+  });
+
+  console.log(`✅ Created 3 sample orders`);
+
+  // Create order items
+  const salmonItem = menuItems.find(item => item.name === 'Grilled Salmon');
+  const wingsItem = menuItems.find(item => item.name === 'Buffalo Wings');
+  const pastaItem = menuItems.find(item => item.name === 'Vegetarian Pasta');
+
+  if (salmonItem && order1) {
+    await prisma.orderItem.create({
       data: {
-        restaurantId: restaurant.id,
-        clerkUserId: 'demo-user', // This will be replaced with actual Clerk user ID
-        role: 'OWNER',
+        orderId: order1.id,
+        menuItemId: salmonItem.id,
+        qty: 1,
+        unitPriceCents: salmonItem.priceCents,
+        notes: 'Medium rare',
+        modifiers: JSON.stringify([
+          { name: 'Cooking Temperature', value: 'Medium Rare' },
+          { name: 'Extra Sauce', value: 'Yes' },
+        ]),
       },
-    })
-  } else {
-    staffUser = existingStaffUser
+    });
   }
 
-  console.log('✅ Created demo staff user')
+  if (wingsItem && order2) {
+    await prisma.orderItem.create({
+      data: {
+        orderId: order2.id,
+        menuItemId: wingsItem.id,
+        qty: 2,
+        unitPriceCents: wingsItem.priceCents,
+        notes: 'Extra spicy',
+      },
+    });
+  }
 
-  console.log('🎉 Database seeded successfully!')
-  console.log('')
-  console.log('Next steps:')
-  console.log('1. Set up your Clerk account and get the user ID')
-  console.log('2. Update the demo staff user with your actual Clerk user ID:')
-  console.log(`   UPDATE staff_users SET clerk_user_id = 'your-clerk-user-id' WHERE clerk_user_id = 'demo-user';`)
-  console.log('3. Visit http://localhost:3000/r/reset/t/T1 to see the menu')
+  if (pastaItem && order3) {
+    await prisma.orderItem.create({
+      data: {
+        orderId: order3.id,
+        menuItemId: pastaItem.id,
+        qty: 1,
+        unitPriceCents: pastaItem.priceCents,
+        notes: 'No onions',
+        modifiers: JSON.stringify([
+          { name: 'Extra Vegetables', value: 'Yes' },
+        ]),
+      },
+    });
+  }
+
+  console.log(`✅ Created order items`);
+
+  console.log('🎉 Database seeded successfully!');
+  console.log('');
+  console.log('📋 Summary:');
+  console.log(`   • Restaurant: ${restaurant.name} (${restaurant.slug})`);
+  console.log(`   • Tables: ${tables.length}`);
+  console.log(`   • Menu Categories: 4`);
+  console.log(`   • Menu Items: ${menuItems.length}`);
+  console.log(`   • Sample Orders: 3`);
+  console.log('');
+  console.log('🔗 Test URLs:');
+  console.log(`   • Customer Menu: http://localhost:3000/r/${restaurant.slug}/t/T1`);
+  console.log(`   • Admin Dashboard: http://localhost:3000/dashboard`);
+  console.log(`   • Admin Settings: http://localhost:3000/admin/settings`);
+  console.log(`   • Admin Billing: http://localhost:3000/admin/billing`);
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error seeding database:', e)
-    process.exit(1)
+    console.error('❌ Error seeding database:', e);
+    process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect()
-  })
+    await prisma.$disconnect();
+  });

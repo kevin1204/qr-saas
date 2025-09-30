@@ -11,14 +11,28 @@ datasource db {
 }
 
 model Restaurant {
-  id           String   @id @default(cuid())
-  slug         String   @unique
-  name         String
-  currency     String   @default("USD")
-  timezone     String   @default("America/Toronto")
-  contactEmail String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  address   String?
+  currency  String   @default("USD")
+  timezone  String   @default("America/New_York")
+  serviceType String @default("TABLE") // TABLE, PICKUP
+  taxRateBps Int     @default(0) // basis points
+  defaultTipBps Int  @default(0) // basis points
+  
+  // Stripe Connect
+  stripeAccountId    String?  @unique
+  chargesEnabled     Boolean  @default(false)
+  payoutsEnabled     Boolean  @default(false)
+  
+  // Stripe Billing
+  billingCustomerId     String?
+  billingSubscriptionId String?
+  trialEndsAt           DateTime?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   tables        Table[]
@@ -30,30 +44,43 @@ model Restaurant {
   @@map("restaurants")
 }
 
-model Table {
-  id          String @id @default(cuid())
+model StaffUser {
+  id           String     @id @default(cuid())
   restaurantId String
-  label       String
-  code        String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  clerkUserId  String     @unique
+  role         StaffRole  @default(STAFF) // OWNER, MANAGER, STAFF
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("staff_users")
+}
+
+model Table {
+  id           String     @id @default(cuid())
+  restaurantId String
+  label        String
+  code         String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   // Relations
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orders     Order[]
 
-  @@unique([restaurantId, label])
   @@unique([restaurantId, code])
   @@map("tables")
 }
 
 model MenuCategory {
-  id           String @id @default(cuid())
+  id           String     @id @default(cuid())
   restaurantId String
   name         String
-  sortOrder    Int    @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   // Relations
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
@@ -63,36 +90,36 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id           String @id @default(cuid())
+  id           String     @id @default(cuid())
   restaurantId String
   categoryId   String
   name         String
   priceCents   Int
   description  String?
   imageUrl     String?
-  isAvailable  Boolean @default(true)
-  sortOrder    Int     @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isAvailable  Boolean    @default(true)
+  sortOrder    Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   // Relations
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  modifiers  Modifier[]
-  orderItems OrderItem[]
+  restaurant  Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category    MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  modifiers   Modifier[]
+  orderItems  OrderItem[]
 
   @@map("menu_items")
 }
 
 model Modifier {
-  id              String @id @default(cuid())
+  id              String       @id @default(cuid())
   menuItemId      String
   name            String
-  type            ModifierType
-  priceDeltaCents Int    @default(0)
-  isRequired      Boolean @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  type            ModifierType @default(SINGLE) // SINGLE, MULTI
+  priceDeltaCents Int          @default(0)
+  isRequired      Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   // Relations
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
@@ -104,8 +131,8 @@ model Order {
   id              String      @id @default(cuid())
   restaurantId    String
   tableId         String?
-  code            String      @unique
-  status          OrderStatus @default(NEW)
+  code            String
+  status          OrderStatus @default(NEW) // NEW, PAID, IN_PROGRESS, READY, DELIVERED, CANCELED
   totalCents      Int
   stripeSessionId String?
   notes           String?
@@ -113,43 +140,29 @@ model Order {
   updatedAt       DateTime    @updatedAt
 
   // Relations
-  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table      Table?      @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      Table?       @relation(fields: [tableId], references: [id], onDelete: SetNull)
   orderItems OrderItem[]
 
   @@map("orders")
 }
 
 model OrderItem {
-  id           String @id @default(cuid())
-  orderId      String
-  menuItemId   String
-  quantity     Int
-  unitPriceCents Int
-  notes        String?
-  modifiers    Json? // Store selected modifiers as JSON
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String     @id @default(cuid())
+  orderId         String
+  menuItemId      String
+  qty             Int
+  unitPriceCents  Int
+  notes           String?
+  modifiers       Json?      // JSON for modifiers
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   // Relations
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
 
   @@map("order_items")
-}
-
-model StaffUser {
-  id           String     @id @default(cuid())
-  restaurantId String
-  clerkUserId  String     @unique
-  role         StaffRole  @default(STAFF)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  // Relations
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-
-  @@map("staff_users")
 }
 
 // Enums
