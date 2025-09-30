@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
-import { ToastProvider } from '@/components/ui/toast';
+import { Toaster } from '@/components/ui/toast';
 import { Navigation } from '@/components/Navigation';
 import { getCurrentUser } from '@/lib/auth';
 import "./globals.css";
@@ -50,10 +50,9 @@ export default async function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ConditionalClerkProvider>
-          <ToastProvider>
-            <Navigation user={user} />
-            {children}
-          </ToastProvider>
+          <Navigation user={user} />
+          {children}
+          <Toaster />
         </ConditionalClerkProvider>
       </body>
     </html>
