@@ -16,6 +16,12 @@ export default function middleware(req: any) {
   
   const isPublicRoute = createRouteMatcher([
     '/',
+    '/about',
+    '/contact', 
+    '/pricing',
+    '/signup',
+    '/qr-test',
+    '/qr-display',
     '/r/(.*)',
     '/order/(.*)',
     '/api/stripe/webhook',
