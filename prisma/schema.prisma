@@ -1,0 +1,174 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Restaurant {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  currency     String   @default("USD")
+  timezone     String   @default("America/Toronto")
+  contactEmail String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  tables        Table[]
+  menuCategories MenuCategory[]
+  menuItems     MenuItem[]
+  orders        Order[]
+  staffUsers    StaffUser[]
+
+  @@map("restaurants")
+}
+
+model Table {
+  id          String @id @default(cuid())
+  restaurantId String
+  label       String
+  code        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@unique([restaurantId, label])
+  @@unique([restaurantId, code])
+  @@map("tables")
+}
+
+model MenuCategory {
+  id           String @id @default(cuid())
+  restaurantId String
+  name         String
+  sortOrder    Int    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id           String @id @default(cuid())
+  restaurantId String
+  categoryId   String
+  name         String
+  priceCents   Int
+  description  String?
+  imageUrl     String?
+  isAvailable  Boolean @default(true)
+  sortOrder    Int     @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  modifiers  Modifier[]
+  orderItems OrderItem[]
+
+  @@map("menu_items")
+}
+
+model Modifier {
+  id              String @id @default(cuid())
+  menuItemId      String
+  name            String
+  type            ModifierType
+  priceDeltaCents Int    @default(0)
+  isRequired      Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("modifiers")
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  restaurantId    String
+  tableId         String?
+  code            String      @unique
+  status          OrderStatus @default(NEW)
+  totalCents      Int
+  stripeSessionId String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  restaurant Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      Table?      @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String @id @default(cuid())
+  orderId      String
+  menuItemId   String
+  quantity     Int
+  unitPriceCents Int
+  notes        String?
+  modifiers    Json? // Store selected modifiers as JSON
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@map("order_items")
+}
+
+model StaffUser {
+  id           String     @id @default(cuid())
+  restaurantId String
+  clerkUserId  String     @unique
+  role         StaffRole  @default(STAFF)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  // Relations
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@map("staff_users")
+}
+
+// Enums
+enum ModifierType {
+  SINGLE
+  MULTI
+}
+
+enum OrderStatus {
+  NEW
+  PAID
+  IN_PROGRESS
+  READY
+  DELIVERED
+  CANCELED
+}
+
+enum StaffRole {
+  OWNER
+  MANAGER
+  STAFF
+}
